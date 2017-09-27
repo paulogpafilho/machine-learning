@@ -21,16 +21,15 @@ import numpy as np
 from six.moves import urllib
 import tensorflow as tf
 
-source_folder = "./monitor"
-num_top_predictions = 5
-
-IMAGE_W=28
-IMAGE_H=28
-IMAGE_COLOR_CHANNELS=3
-CLASSES=7
-MODEL_DIR="./tmp/fruits_convnet_model"
-classes_map = {"apple": 0, "avocado": 1, "clementine": 2, "empty": 3, "kiwifruit": 4, "lime": 5, "plum": 6}
+# source_folder = "./monitor"
+# IMAGE_W=28
+# IMAGE_H=28
+# IMAGE_COLOR_CHANNELS=3
+# CLASSES=7
+# MODEL_DIR="./tmp/fruits_convnet_model"
+# classes_map = {"apple": 0, "avocado": 1, "clementine": 2, "empty": 3, "kiwifruit": 4, "lime": 5, "plum": 6}
 mnist_classifier = None
+FLAGS = None
 
 def rreplace(s, old, new, occurrence):
     li = s.rsplit(old, occurrence)
@@ -45,7 +44,7 @@ def cnn_model_fn(features, labels, mode):
     """Model function for CNN."""
     start_model_Load = datetime.datetime.now()
     # Input Layer
-    input_layer = tf.reshape(features["x"], [-1, IMAGE_W, IMAGE_H, IMAGE_COLOR_CHANNELS])
+    input_layer = tf.reshape(features["x"], [-1, FLAGS.img_w, FLAGS.img_h, FLAGS.img_channels])
 
     # Convolutional Layer #1 and Pooling Layer #1
     conv1 = tf.layers.conv2d(
@@ -86,15 +85,15 @@ def cnn_model_fn(features, labels, mode):
 def loadEstimator():
     # Create the Estimator
     print("Initiating Estimator...")
-    return tf.estimator.Estimator(model_fn=cnn_model_fn, model_dir=MODEL_DIR)
+    return tf.estimator.Estimator(model_fn=cnn_model_fn, model_dir=FLAGS.model_dir)
 
 def processImage(image):
     a = datetime.datetime.now()
     # Load the image file
     #img = scipy.ndimage.imread(args.image, mode="RGB")
-    img = scipy.ndimage.imread(os.path.join(source_folder, image), mode="RGB")
+    img = scipy.ndimage.imread(os.path.join(FLAGS.monitor_directory, image), mode="RGB")
     # Scale it to 32x32
-    img = scipy.misc.imresize(img, (IMAGE_W, IMAGE_H), interp="bicubic").astype(np.float32, casting='unsafe')
+    img = scipy.misc.imresize(img, (FLAGS.img_w, FLAGS.img_h), interp="bicubic").astype(np.float32, casting='unsafe')
     # Predict
     predict_input = tf.estimator.inputs.numpy_input_fn(
       x={"x": img},
@@ -110,7 +109,7 @@ def processImage(image):
 def scan_directory():
     start_model_Load = datetime.datetime.now()
     ret = {}
-    for filename in glob.glob(os.path.join(source_folder, '*.jpg')):
+    for filename in glob.glob(os.path.join(FLAGS.monitor_directory, '*.jpg')):
         print(basename(filename))
         ret[basename(filename.split(".jpg")[0])] = processImage(basename(filename))
     end_model_Load = datetime.datetime.now()
@@ -118,7 +117,7 @@ def scan_directory():
     return json.dumps(ret)
 
 app = Flask(__name__)
-mnist_classifier = loadEstimator()
+#mnist_classifier = loadEstimator()
 
 @app.route('/')
 def index():
@@ -143,4 +142,72 @@ def classify():
         return scan_directory()
 
 if __name__ == '__main__':
-    app.run(debug=False)
+# source_folder = "./monitor"
+# IMAGE_W=28
+# IMAGE_H=28
+# IMAGE_COLOR_CHANNELS=3
+# CLASSES=7
+# MODEL_DIR="./tmp/fruits_convnet_model"
+# classes_map = {"apple": 0, "avocado": 1, "clementine": 2, "empty": 3, "kiwifruit": 4, "lime": 5, "plum": 6}
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--monitor_directory',
+        type=str,
+        required=True,
+        help="""\
+        The directory where the pictures are stored.\
+        Every time the endpoint is invoked, the server will read the folder\
+        and infer all pictures it finds there. \
+        """
+    )
+    parser.add_argument(
+        '--model_dir',
+        type=str,
+        required=True,
+        help="""\
+        The directory where the trained mode is. \
+        """
+    )
+    parser.add_argument(
+        '--img_w',
+        type=int,
+        default=28,
+        help="""\
+        Optional. Defaults to 28. Image width. The program will convert the image to the same width/height
+        of the training model.\
+        """
+    )
+    parser.add_argument(
+        '--img_h',
+        type=int,
+        default=28,
+        help="""\
+        Optional. Defaults to 28. Image height. The program will convert the image to the same width/height
+        of the training model.\
+        """
+    )
+    parser.add_argument(
+        '--img_channels',
+        type=int,
+        default=3,
+        help="""\
+        Optional. Defaults to 3. Image height. The program will convert the image to the same color channel
+        of the training model.\
+        """
+    )
+    parser.add_argument(
+        '--classes_map_file',
+        type=str,
+        default='./sample_mapping.json',
+        help="""\
+        Optional. Defaults to ./sample_mapping.json. The class mapping JSON file\
+        """
+    )
+    FLAGS, unparsed = parser.parse_known_args()
+    with open(str(FLAGS.classes_map_file), 'r') as myfile:
+        data = myfile.read()
+        classes_map = json.loads(data)
+        CLASSES = len(classes_map)
+    mnist_classifier = loadEstimator()
+    app.run(debug=False,host='localhost',port=int(8080))
