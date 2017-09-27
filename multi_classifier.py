@@ -18,6 +18,10 @@ It takes the following arguments:
 --img_w: Optional. Defaults to 28. Image pixels width used in the input data.
 --img_h: Optional. Defaulst to 28. Image pixels height used in the input data.
 --img_channels: Optional. Defaults to 3 (RGB). Image color channels from the input data.
+Examples:
+- To train: python multi_classifier.py --mode train --classes 7 --steps 100 --model_dir ./tmp/my_first_model --data_set ./sample.pkl
+- To evaluate: python multi_classifier.py --mode eval --classes 7 --model_dir ./tmp/my_first_model --data_set ./sample.pkl
+- To infer: python multi_classifier.py --mode infer --classes 7 --model_dir ./tmp/my_first_model --img_file ./original/apple_3695899.jpg
 '''
 from __future__ import absolute_import
 from __future__ import division
