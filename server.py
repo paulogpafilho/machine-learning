@@ -3,31 +3,19 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from flask import Flask
-from flask import request
-
 import ast
 import argparse
 import os.path
-import re
-import sys
-import tarfile
+from os.path import basename
 import datetime
 import json
 import glob
-from os.path import basename
+from flask import Flask
+from flask import request
 import scipy
 import numpy as np
-from six.moves import urllib
 import tensorflow as tf
 
-# source_folder = "./monitor"
-# IMAGE_W=28
-# IMAGE_H=28
-# IMAGE_COLOR_CHANNELS=3
-# CLASSES=7
-# MODEL_DIR="./tmp/fruits_convnet_model"
-# classes_map = {"apple": 0, "avocado": 1, "clementine": 2, "empty": 3, "kiwifruit": 4, "lime": 5, "plum": 6}
 mnist_classifier = None
 FLAGS = None
 
@@ -42,7 +30,6 @@ def getClassName(n):
 
 def cnn_model_fn(features, labels, mode):
     """Model function for CNN."""
-    start_model_Load = datetime.datetime.now()
     # Input Layer
     input_layer = tf.reshape(features["x"], [-1, FLAGS.img_w, FLAGS.img_h, FLAGS.img_channels])
 
@@ -82,12 +69,14 @@ def cnn_model_fn(features, labels, mode):
     }
     return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
-def loadEstimator():
+def load_estimator():
+    '''Loads the estimator for image recognition'''
     # Create the Estimator
     print("Initiating Estimator...")
     return tf.estimator.Estimator(model_fn=cnn_model_fn, model_dir=FLAGS.model_dir)
 
-def processImage(image):
+def process_image(image):
+    '''Process image recognition'''
     a = datetime.datetime.now()
     # Load the image file
     #img = scipy.ndimage.imread(args.image, mode="RGB")
@@ -111,20 +100,21 @@ def scan_directory():
     ret = {}
     for filename in glob.glob(os.path.join(FLAGS.monitor_directory, '*.jpg')):
         print(basename(filename))
-        ret[basename(filename.split(".jpg")[0])] = processImage(basename(filename))
+        ret[basename(filename.split(".jpg")[0])] = process_image(basename(filename))
     end_model_Load = datetime.datetime.now()
     print("All images classified in : " + str(end_model_Load - start_model_Load))
     return json.dumps(ret)
 
 app = Flask(__name__)
-#mnist_classifier = loadEstimator()
 
 @app.route('/')
 def index():
+    '''base resource of the server'''
     return "Welcome to Smart Cabinet Service, please use the /inventory resource to get an updated cabinet inventory"
 
 @app.route('/inventory')
 def classify():
+    '''classification endoint'''
     if 'view' in request.args:
         if request.args.get('view') == 'consolidated':
             snapshot = ast.literal_eval(scan_directory())
@@ -142,14 +132,6 @@ def classify():
         return scan_directory()
 
 if __name__ == '__main__':
-# source_folder = "./monitor"
-# IMAGE_W=28
-# IMAGE_H=28
-# IMAGE_COLOR_CHANNELS=3
-# CLASSES=7
-# MODEL_DIR="./tmp/fruits_convnet_model"
-# classes_map = {"apple": 0, "avocado": 1, "clementine": 2, "empty": 3, "kiwifruit": 4, "lime": 5, "plum": 6}
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--monitor_directory',
@@ -209,5 +191,5 @@ if __name__ == '__main__':
         data = myfile.read()
         classes_map = json.loads(data)
         CLASSES = len(classes_map)
-    mnist_classifier = loadEstimator()
+    mnist_classifier = load_estimator()
     app.run(debug=False,host='localhost',port=int(8080))
