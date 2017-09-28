@@ -1,4 +1,21 @@
-#!flask/bin/python
+'''This program creates a web service that returns the result of image recognition
+of images in a folder using a pre-trained model.
+The endpoint /inventory returns the actual state of the items found in the monitored
+folder, while if query parameter view=consolidated is passed, it returns the
+classes consolidated by quantity.
+Parameters:
+--monitor_directory: Required. The directory where the pictures are stored.\
+        Every time the endpoint is invoked, the server will read the folder\
+        and infer all pictures it finds there.
+--model_dir: Required. The directory where the trained mode is stored.
+--img_w: Optional. Defaults to 28. Image width. The program will convert the image to 
+        the same width/height of the training model.\
+--img_h: Optional. Defaults to 28. Image height. The program will convert the image to 
+        the same width/height of the training model.\
+--img_channels: Optional. Defaults to 3. Image height. The program will convert the 
+        image to the same color channel of the training model.\
+'--classes_map_file: Optional. Defaults to ./sample_mapping.json. The class mapping JSON file.
+'''
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -82,27 +99,30 @@ def process_image(image):
     #img = scipy.ndimage.imread(args.image, mode="RGB")
     img = scipy.ndimage.imread(os.path.join(FLAGS.monitor_directory, image), mode="RGB")
     # Scale it to 32x32
-    img = scipy.misc.imresize(img, (FLAGS.img_w, FLAGS.img_h), interp="bicubic").astype(np.float32, casting='unsafe')
+    img = scipy.misc.imresize(img, (FLAGS.img_w, FLAGS.img_h), interp="bicubic").astype(
+        np.float32, casting='unsafe')
     # Predict
     predict_input = tf.estimator.inputs.numpy_input_fn(
-      x={"x": img},
-      y=None,
-      num_epochs=1,
-      shuffle=False)
-    predict_results = mnist_classifier.predict(input_fn=predict_input,predict_keys=None,hooks=None)
+        x={"x": img},
+        y=None,
+        num_epochs=1,
+        shuffle=False)
+    predict_results = mnist_classifier.predict(input_fn=predict_input, predict_keys=None,
+                                               hooks=None)
     n = list(predict_results)[0]['classes']
     b = datetime.datetime.now()
     print("Infer Time: " + str(b-a))
     return getClassName(n)
 
 def scan_directory():
-    start_model_Load = datetime.datetime.now()
+    '''Reads the directory to be monitored and classifies all images found there'''
+    start_model_load = datetime.datetime.now()
     ret = {}
     for filename in glob.glob(os.path.join(FLAGS.monitor_directory, '*.jpg')):
         print(basename(filename))
         ret[basename(filename.split(".jpg")[0])] = process_image(basename(filename))
-    end_model_Load = datetime.datetime.now()
-    print("All images classified in : " + str(end_model_Load - start_model_Load))
+    end_model_load = datetime.datetime.now()
+    print("All images classified in : " + str(end_model_load - start_model_load))
     return json.dumps(ret)
 
 app = Flask(__name__)
@@ -114,7 +134,7 @@ def index():
 
 @app.route('/inventory')
 def classify():
-    '''classification endoint'''
+    '''classification endpoint'''
     if 'view' in request.args:
         if request.args.get('view') == 'consolidated':
             snapshot = ast.literal_eval(scan_directory())
